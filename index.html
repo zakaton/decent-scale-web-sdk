@@ -12,6 +12,8 @@
     <h1>Decent Scale Web SDK</h1>
 
     <button onclick="toggleConnection(event)">connect</button>
+    
+    
   </body>
 
   <script>
@@ -33,5 +35,15 @@
           : "connect";
       }
     }
+    
+    decentScale.addEventListener("weight", event => {
+      const {weight, isStable, change, time} = event.message;
+      // FILL
+    })
+    
+    decentScale.addEventListener("led", event => {
+      const {isGrams, batteryLife, firmwareVersion, isUSB} = event.message;
+      // FILL
+    })
   </script>
 </html>

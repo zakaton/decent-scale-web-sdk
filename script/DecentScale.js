@@ -284,6 +284,25 @@ class DecentScale extends EventDispatcher {
     return this.sendCommandData([0x0f, incrementedInteger, 0, 0, 0]);
   }
 
+  FIRMWARE_ENUM = {
+    0xFE: 1.0,
+    0x02: 1.1,
+    0x03: 1.2
+  }
+  WEIGHT_TYPE_ENUM = {
+    0: "grams",
+    1: "ounces"
+  }
+  BUTTON_TYPE_ENUM = {
+    1: "left",
+    2: "right"
+  }
+  BUTTON_TAP_TYPE_ENUM = {
+    1: "short",
+    2: "long"
+  }
+  USB_BATTERY_ENUM = 255;
+  
   onDataCharacteristicValueChanged(event) {
     let dataView = event.target.value;
     //this.log("onDataCharacteristicValueChanged", event, values);
@@ -292,14 +311,19 @@ class DecentScale extends EventDispatcher {
     }
     const type = dataView.getUint8(1);
     switch (type) {
-      case 0x0a: // LED on/off or power off
+      case 0x0a: // LED on/off
         {
           const message = {
-            isGrams: !dataView.getUint8(3),
+            weightType: this.WEIGHT_TYPE_ENUM[dataView.getUint8(3)],
             batteryLife: dataView.getUint8(4),
-            firmwareVersion: dataView.getUint8(5),
+            firmwareVersion: this.FIRMWARE_ENUM[ dataView.getUint8(5)],
           };
-          message.isUSB = message.batteryLife == 255;
+          message.isUSB = message.batteryLife == this.USB_BATTERY_ENUM;
+          
+          this.firmwareVersion = message.firmwareVersion;
+          
+          this.log("led", message);
+          
           this.dispatchEvent({
             type: "led",
             message,
@@ -309,6 +333,9 @@ class DecentScale extends EventDispatcher {
       case 0x0f: // TARE
         {
           const message = { counter: dataView.getUint8(2) };
+          
+          this.log("tare", message)
+          
           this.dispatchEvent({
             type: "tare",
             message,
@@ -320,7 +347,7 @@ class DecentScale extends EventDispatcher {
         {
           const isStable = type == 0xce;
           const weight = dataView.getInt16(2) / 10;
-          const message = { isStable, weight };
+          const message = { isStable, weight};
           if (dataView.byteLength == 7) {
             message.change = dataView.getInt16(4);
           } else if (dataView.byteLength == 10) {
@@ -330,6 +357,9 @@ class DecentScale extends EventDispatcher {
               milliseconds: dataView.getUint8(6),
             };
           }
+          
+          //this.log("weight", message)
+          
           this.dispatchEvent({
             type: "weight",
             message,
@@ -339,9 +369,12 @@ class DecentScale extends EventDispatcher {
       case 0xaa: // button tap
         {
           const message = {
-            button: dataView.getUint8(2),
-            tap: dataView.getUint8(3),
+            button: this.BUTTON_TYPE_ENUM[dataView.getUint8(2)],
+            tap: this.BUTTON_TAP_TYPE_ENUM[dataView.getUint8(3)],
           };
+          
+          this.log("buttonTap", message)
+          
           this.dispatchEvent({
             type: "buttonTap",
             message,
