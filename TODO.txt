@@ -1,4 +1,6 @@
 UI
+  taps
 
 DOCUMENTATION ISSUES
   power off sequence is wrong
+  can you access timer info?

@@ -150,6 +150,22 @@ class DecentScale extends EventDispatcher {
     this.log("getting server");
     this.server = await this.device.gatt.connect();
     this.log("got server!");
+    await this.onGattServerConnected();
+  }
+  async disconnect() {
+    this.log("attempting to disconnect...");
+    if (!this.isConnected) {
+      this.log("already disconnected");
+      return;
+    }
+
+    this.device.gatt.disconnect();
+  }
+
+  async onGattServerConnected() {
+    if (!this.isConnected) {
+      return;
+    }
 
     for (const serviceName in this.services) {
       const serviceInfo = this.services[serviceName];
@@ -190,22 +206,9 @@ class DecentScale extends EventDispatcher {
     this.log("connection complete!");
     this.dispatchEvent({ type: "connected" });
   }
-  async disconnect() {
-    this.log("attempting to disconnect...");
-    if (!this.isConnected) {
-      this.log("already disconnected");
-      return;
-    }
-  }
-
-  reconnectOnDisconnection = true;
-  onGattServerDisconnected() {
+  async onGattServerDisconnected() {
     this.log("disconnected");
     this.dispatchEvent({ type: "disconnected" });
-    if (this.reconnectOnDisconnection) {
-      this.log("attempting to reconnect...");
-      this.device.gatt.connect();
-    }
   }
 
   hexStringToNumbers(hexString) {
@@ -284,6 +287,30 @@ class DecentScale extends EventDispatcher {
     return this.sendCommandData([0x0f, incrementedInteger, 0, 0, 0]);
   }
 
+  FIRMWARE_ENUM = {
+    0xfe: 1.0,
+    0x02: 1.1,
+    0x03: 1.2,
+  };
+  WEIGHT_TYPE_ENUM = {
+    0: "grams",
+    1: "ounces",
+  };
+  BUTTON_TYPE_ENUM = {
+    1: "left",
+    2: "right",
+  };
+  BUTTON_TAP_TYPE_ENUM = {
+    1: "short",
+    2: "long",
+  };
+  USB_BATTERY_ENUM = 255;
+
+  firmwareVersion = null;
+  isUSB = null;
+  battery = null;
+  weightType = null;
+  
   onDataCharacteristicValueChanged(event) {
     let dataView = event.target.value;
     //this.log("onDataCharacteristicValueChanged", event, values);
@@ -292,23 +319,60 @@ class DecentScale extends EventDispatcher {
     }
     const type = dataView.getUint8(1);
     switch (type) {
-      case 0x0a: // LED on/off or power off
+      case 0x0a: // LED on/off
         {
-          const message = {
-            isGrams: !dataView.getUint8(3),
-            batteryLife: dataView.getUint8(4),
-            firmwareVersion: dataView.getUint8(5),
-          };
-          message.isUSB = message.batteryLife == 255;
-          this.dispatchEvent({
-            type: "led",
-            message,
-          });
+          let battery = dataView.getUint8(4);
+          const isUSB = battery == this.USB_BATTERY_ENUM;
+          if (isUSB) {
+            battery = 100;
+          }
+          this.battery = battery;
+          if (!isUSB) {
+            this.dispatchEvent({
+              type: "battery",
+              message: { battery },
+            });
+          }
+
+          if (this.isUSB != isUSB) {
+            this.isUSB = isUSB;
+            this.dispatchEvent({
+              type: "isUSB",
+              message: { isUSB },
+            });
+            if (isUSB) {
+              this.dispatchEvent({
+                type: "battery",
+                message: { battery },
+              });
+            }
+          }
+
+          const firmwareVersion = this.FIRMWARE_ENUM[dataView.getUint8(5)];
+          if (this.firmwareVersion != firmwareVersion) {
+            this.firmwareVersion = firmwareVersion;
+            this.dispatchEvent({
+              type: "firmwareVersion",
+              message: { firmwareVersion },
+            });
+          }
+          
+          const weightType = this.WEIGHT_TYPE_ENUM[dataView.getUint8(3)];
+          if (this.weightType != weightType) {
+            this.weightType = weightType;
+            this.dispatchEvent({
+              type: "weightType",
+              message: { weightType },
+            });
+          }
         }
         break;
       case 0x0f: // TARE
         {
           const message = { counter: dataView.getUint8(2) };
+
+          this.log("tare", message);
+
           this.dispatchEvent({
             type: "tare",
             message,
@@ -324,12 +388,20 @@ class DecentScale extends EventDispatcher {
           if (dataView.byteLength == 7) {
             message.change = dataView.getInt16(4);
           } else if (dataView.byteLength == 10) {
+            const minutes = dataView.getUint8(4);
+            const seconds = dataView.getUint8(5);
+            const milliseconds = dataView.getUint8(6);
+
             message.time = {
-              minutes: dataView.getUint8(4),
-              seconds: dataView.getUint8(5),
-              milliseconds: dataView.getUint8(6),
+              minutes,
+              seconds,
+              milliseconds,
+              string: `${minutes}:${seconds}:${milliseconds}`,
             };
           }
+
+          //this.log("weight", message)
+
           this.dispatchEvent({
             type: "weight",
             message,
@@ -339,9 +411,12 @@ class DecentScale extends EventDispatcher {
       case 0xaa: // button tap
         {
           const message = {
-            button: dataView.getUint8(2),
-            tap: dataView.getUint8(3),
+            button: this.BUTTON_TYPE_ENUM[dataView.getUint8(2)],
+            tap: this.BUTTON_TAP_TYPE_ENUM[dataView.getUint8(3)],
           };
+
+          this.log("buttonTap", message);
+
           this.dispatchEvent({
             type: "buttonTap",
             message,
