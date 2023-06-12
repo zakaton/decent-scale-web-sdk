@@ -8,42 +8,95 @@
     />
     <script src="/script/DecentScale.js"></script>
   </head>
+  <style>
+    label {
+      display: block;
+    }
+  </style>
   <body>
     <h1>Decent Scale Web SDK</h1>
 
-    <button onclick="toggleConnection(event)">connect</button>
+    <button id="toggleConnectionButton">connect</button>
+    <button id="powerOffButton" disabled>power off</button>
     
-    
+    <h2>info</h2>
+    <label>firmware <input readonly size="3"> </label>
+    <label>battery life <input readonly type="number" min="0" max="100"> </label>
+    <label>is usb? <input readonly onclick="return false;" type="checkbox"> </label>
+
+    <h2>weight</h2>
+    <label>weight (grams) <input readonly type="number" min="-2000" max="2000" value="0.0"> </label>
+    <label>time <input size="8" readonly value="10:10:10"></label>
+
+    <h2>led</h2>
+    <label>show weight <input type="checkbox" /></label>
+    <label>show timer <input type="checkbox" /></label>
+    <label>
+      weight type
+      <select>
+        <option>grams</option>
+        <option>ounces</option>
+      </select>
+    </label>
+
+    <h2>timer</h2>
+    <button>start</button>
+    <button>stop</button>
+    <button>reset</button>
+
+    <h2>buttons</h2>
+    <p id="buttonTap"></p>
   </body>
 
   <script>
     const decentScale = new DecentScale();
 
-    async function toggleConnection(event) {
-      event.target.disabled = true;
-      event.target.innerText += "ing...";
-      try {
-        if (decentScale.isConnected) {
-          await decentScale.disconnect();
-        } else {
-          await decentScale.connect();
-        }
-      } finally {
-        event.target.disabled = false;
-        event.target.innerText = decentScale.isConnected
-          ? "disconnect"
-          : "connect";
+    decentScale.addEventListener("connected", () => {
+      toggleConnectionButton.disabled = false;
+      toggleConnectionButton.innerText = "disconnect";
+
+      powerOffButton.disabled = false;
+    });
+    decentScale.addEventListener("disconnected", () => {
+      toggleConnectionButton.disabled = false;
+      toggleConnectionButton.innerText = "connect";
+
+      powerOffButton.disabled = true;
+    });
+
+    const toggleConnectionButton = document.getElementById(
+      "toggleConnectionButton"
+    );
+    toggleConnectionButton.addEventListener("click", async () => {
+      toggleConnectionButton.disabled = true;
+      toggleConnectionButton.innerText += "ing...";
+      if (decentScale.isConnected) {
+        await decentScale.disconnect();
+      } else {
+        await decentScale.connect();
       }
-    }
-    
-    decentScale.addEventListener("weight", event => {
-      const {weight, isStable, change, time} = event.message;
+    });
+
+    const powerOffButton = document.getElementById("powerOffButton");
+    powerOffButton.addEventListener("click", async () => {
+      powerOffButton.disabled = true;
+      powerOffButton.innerText = "powering off...";
+      try {
+        await decentScale.powerOff();
+      } finally {
+        powerOffButton.innerText = "power off";
+        powerOffButton.disabled = true;
+      }
+    });
+
+    decentScale.addEventListener("weight", (event) => {
+      const { weight, isStable, change, time } = event.message;
       // FILL
-    })
-    
-    decentScale.addEventListener("led", event => {
-      const {isGrams, batteryLife, firmwareVersion, isUSB} = event.message;
+    });
+
+    decentScale.addEventListener("led", (event) => {
+      const { isGrams, batteryLife, firmwareVersion, isUSB } = event.message;
       // FILL
-    })
+    });
   </script>
 </html>

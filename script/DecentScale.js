@@ -150,6 +150,22 @@ class DecentScale extends EventDispatcher {
     this.log("getting server");
     this.server = await this.device.gatt.connect();
     this.log("got server!");
+    await this.onGattServerConnected();
+  }
+  async disconnect() {
+    this.log("attempting to disconnect...");
+    if (!this.isConnected) {
+      this.log("already disconnected");
+      return;
+    }
+
+    this.device.gatt.disconnect();
+  }
+
+  async onGattServerConnected() {
+    if (!this.isConnected) {
+      return;
+    }
 
     for (const serviceName in this.services) {
       const serviceInfo = this.services[serviceName];
@@ -190,22 +206,9 @@ class DecentScale extends EventDispatcher {
     this.log("connection complete!");
     this.dispatchEvent({ type: "connected" });
   }
-  async disconnect() {
-    this.log("attempting to disconnect...");
-    if (!this.isConnected) {
-      this.log("already disconnected");
-      return;
-    }
-  }
-
-  reconnectOnDisconnection = true;
-  onGattServerDisconnected() {
+  async onGattServerDisconnected() {
     this.log("disconnected");
     this.dispatchEvent({ type: "disconnected" });
-    if (this.reconnectOnDisconnection) {
-      this.log("attempting to reconnect...");
-      this.device.gatt.connect();
-    }
   }
 
   hexStringToNumbers(hexString) {
@@ -285,24 +288,24 @@ class DecentScale extends EventDispatcher {
   }
 
   FIRMWARE_ENUM = {
-    0xFE: 1.0,
+    0xfe: 1.0,
     0x02: 1.1,
-    0x03: 1.2
-  }
+    0x03: 1.2,
+  };
   WEIGHT_TYPE_ENUM = {
     0: "grams",
-    1: "ounces"
-  }
+    1: "ounces",
+  };
   BUTTON_TYPE_ENUM = {
     1: "left",
-    2: "right"
-  }
+    2: "right",
+  };
   BUTTON_TAP_TYPE_ENUM = {
     1: "short",
-    2: "long"
-  }
+    2: "long",
+  };
   USB_BATTERY_ENUM = 255;
-  
+
   onDataCharacteristicValueChanged(event) {
     let dataView = event.target.value;
     //this.log("onDataCharacteristicValueChanged", event, values);
@@ -316,14 +319,14 @@ class DecentScale extends EventDispatcher {
           const message = {
             weightType: this.WEIGHT_TYPE_ENUM[dataView.getUint8(3)],
             batteryLife: dataView.getUint8(4),
-            firmwareVersion: this.FIRMWARE_ENUM[ dataView.getUint8(5)],
+            firmwareVersion: this.FIRMWARE_ENUM[dataView.getUint8(5)],
           };
           message.isUSB = message.batteryLife == this.USB_BATTERY_ENUM;
-          
+
           this.firmwareVersion = message.firmwareVersion;
-          
+
           this.log("led", message);
-          
+
           this.dispatchEvent({
             type: "led",
             message,
@@ -333,9 +336,9 @@ class DecentScale extends EventDispatcher {
       case 0x0f: // TARE
         {
           const message = { counter: dataView.getUint8(2) };
-          
-          this.log("tare", message)
-          
+
+          this.log("tare", message);
+
           this.dispatchEvent({
             type: "tare",
             message,
@@ -347,7 +350,7 @@ class DecentScale extends EventDispatcher {
         {
           const isStable = type == 0xce;
           const weight = dataView.getInt16(2) / 10;
-          const message = { isStable, weight};
+          const message = { isStable, weight };
           if (dataView.byteLength == 7) {
             message.change = dataView.getInt16(4);
           } else if (dataView.byteLength == 10) {
@@ -357,9 +360,9 @@ class DecentScale extends EventDispatcher {
               milliseconds: dataView.getUint8(6),
             };
           }
-          
+
           //this.log("weight", message)
-          
+
           this.dispatchEvent({
             type: "weight",
             message,
@@ -372,9 +375,9 @@ class DecentScale extends EventDispatcher {
             button: this.BUTTON_TYPE_ENUM[dataView.getUint8(2)],
             tap: this.BUTTON_TAP_TYPE_ENUM[dataView.getUint8(3)],
           };
-          
-          this.log("buttonTap", message)
-          
+
+          this.log("buttonTap", message);
+
           this.dispatchEvent({
             type: "buttonTap",
             message,
