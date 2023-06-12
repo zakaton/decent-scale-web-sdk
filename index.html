@@ -1,0 +1,37 @@
+<html>
+  <head>
+    <title>Decent Scale Web SDK</title>
+    <link
+      rel="icon"
+      type="image/x-icon"
+      href="https://cdn.glitch.global/bd4802a5-8bbc-461d-9135-33d8e37eac49/favicon.ico?v=1686518929595"
+    />
+    <script src="/script/DecentScale.js"></script>
+  </head>
+  <body>
+    <h1>Decent Scale Web SDK</h1>
+
+    <button onclick="toggleConnection(event)">connect</button>
+  </body>
+
+  <script>
+    const decentScale = new DecentScale();
+
+    async function toggleConnection(event) {
+      event.target.disabled = true;
+      event.target.innerText += "ing...";
+      try {
+        if (decentScale.isConnected) {
+          await decentScale.disconnect();
+        } else {
+          await decentScale.connect();
+        }
+      } finally {
+        event.target.disabled = false;
+        event.target.innerText = decentScale.isConnected
+          ? "disconnect"
+          : "connect";
+      }
+    }
+  </script>
+</html>

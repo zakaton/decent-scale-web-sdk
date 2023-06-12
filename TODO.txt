@@ -1,0 +1,4 @@
+UI
+
+DOCUMENTATION ISSUES
+  power off sequence is wrong
