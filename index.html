@@ -18,50 +18,79 @@
 
     <button id="toggleConnectionButton">connect</button>
     <button id="powerOffButton" disabled>power off</button>
-    
+
     <h2>info</h2>
-    <label>firmware <input readonly size="3"> </label>
-    <label>battery life <input readonly type="number" min="0" max="100"> </label>
-    <label>is usb? <input readonly onclick="return false;" type="checkbox"> </label>
+    <label
+      >firmware version <input id="firmwareVersion" readonly size="3" />
+    </label>
+    <label
+      >battery <input id="battery" readonly type="number" min="0" max="100" />
+    </label>
+    <label
+      >is usb?
+      <input id="isUSB" readonly onclick="return false;" type="checkbox" />
+    </label>
 
     <h2>weight</h2>
-    <label>weight (grams) <input readonly type="number" min="-2000" max="2000" value="0.0"> </label>
-    <label>time <input size="8" readonly value="10:10:10"></label>
+    <button id="tare" disabled>tare</button>
+    <label
+      >weight (grams)
+      <input
+        id="weight"
+        readonly
+        type="number"
+        min="-2"
+        max="2"
+        step="0.1"
+        value="0.0"
+      />
+    </label>
+    <label
+      >is stable?
+      <input id="isStable" readonly onclick="return false;" type="checkbox" />
+    </label>
+    <label>time <input size="7" id="time" readonly value="0:0:0" /></label>
 
     <h2>led</h2>
-    <label>show weight <input type="checkbox" /></label>
-    <label>show timer <input type="checkbox" /></label>
+    <label>show weight <input id="showWeight" type="checkbox" /></label>
+    <label>show timer <input id="showTimer" type="checkbox" /></label>
     <label>
       weight type
-      <select>
+      <select id="weightType">
         <option>grams</option>
         <option>ounces</option>
       </select>
     </label>
 
     <h2>timer</h2>
-    <button>start</button>
-    <button>stop</button>
-    <button>reset</button>
+    <button id="startTimer" disabled>start</button>
+    <button id="stopTimer" disabled>stop</button>
+    <button id="resetTimer" disabled>reset</button>
 
-    <h2>buttons</h2>
-    <p id="buttonTap"></p>
+    <h2>button taps</h2>
+    <p id="buttonTaps"></p>
   </body>
 
   <script>
     const decentScale = new DecentScale();
 
     decentScale.addEventListener("connected", () => {
-      toggleConnectionButton.disabled = false;
-      toggleConnectionButton.innerText = "disconnect";
-
       powerOffButton.disabled = false;
+
+      startTimerButton.disabled = false;
+      stopTimerButton.disabled = false;
+      resetTimerButton.disabled = false;
+
+      tareButton.disabled = false;
     });
     decentScale.addEventListener("disconnected", () => {
-      toggleConnectionButton.disabled = false;
-      toggleConnectionButton.innerText = "connect";
-
       powerOffButton.disabled = true;
+
+      startTimerButton.disabled = true;
+      stopTimerButton.disabled = true;
+      resetTimerButton.disabled = true;
+
+      tareButton.disabled = true;
     });
 
     const toggleConnectionButton = document.getElementById(
@@ -70,10 +99,18 @@
     toggleConnectionButton.addEventListener("click", async () => {
       toggleConnectionButton.disabled = true;
       toggleConnectionButton.innerText += "ing...";
-      if (decentScale.isConnected) {
-        await decentScale.disconnect();
-      } else {
-        await decentScale.connect();
+
+      try {
+        if (decentScale.isConnected) {
+          await decentScale.disconnect();
+        } else {
+          await decentScale.connect();
+        }
+      } finally {
+        toggleConnectionButton.disabled = false;
+        toggleConnectionButton.innerText = decentScale.isConnected
+          ? "disconnect"
+          : "connect";
       }
     });
 
@@ -89,14 +126,72 @@
       }
     });
 
-    decentScale.addEventListener("weight", (event) => {
-      const { weight, isStable, change, time } = event.message;
-      // FILL
+    const firmwareVersionInput = document.getElementById("firmwareVersion");
+    decentScale.addEventListener("firmwareVersion", () => {
+      firmwareVersionInput.value = decentScale.firmwareVersion;
     });
 
-    decentScale.addEventListener("led", (event) => {
-      const { isGrams, batteryLife, firmwareVersion, isUSB } = event.message;
-      // FILL
+    const batteryInput = document.getElementById("battery");
+    decentScale.addEventListener("battery", (event) => {
+      batteryInput.value = decentScale.battery;
     });
+
+    const isUSBInput = document.getElementById("isUSB");
+    decentScale.addEventListener("isUSB", (event) => {
+      isUSBInput.checked = decentScale.isUSB;
+    });
+
+    const tareButton = document.getElementById("tare");
+    tareButton.addEventListener("click", async () => {
+      await decentScale.tare();
+    });
+    const weightInput = document.getElementById("weight");
+    const isStableInput = document.getElementById("isStable");
+    const timeInput = document.getElementById("time");
+    decentScale.addEventListener("weight", (event) => {
+      const { weight, isStable, change, time } = event.message;
+      weightInput.value = weight;
+      isStableInput.checked = isStable;
+      timeInput.value = time.string;
+    });
+
+    const showWeightInput = document.getElementById("showWeight");
+    showWeightInput.addEventListener("input", async () => {
+      await setLED();
+    });
+    const showTimerInput = document.getElementById("showTimer");
+    showTimerInput.addEventListener("input", async () => {
+      await setLED();
+    });
+    const weightTypeInput = document.getElementById("weightType");
+    weightTypeInput.addEventListener("input", async () => {
+      await setLED();
+    });
+    const setLED = () => {
+      decentScale.setLED(
+        showWeightInput.checked,
+        showTimerInput.checked,
+        weightTypeInput.value == "grams"
+      );
+    };
+
+    const startTimerButton = document.getElementById("startTimer");
+    startTimerButton.addEventListener("click", async () => {
+      await decentScale.startTimer();
+    });
+    const stopTimerButton = document.getElementById("stopTimer");
+    stopTimerButton.addEventListener("click", async () => {
+      await decentScale.stopTimer();
+    });
+    const resetTimerButton = document.getElementById("resetTimer");
+    resetTimerButton.addEventListener("click", async () => {
+      await decentScale.resetTimer();
+    });
+    
+    const buttonTapsInput = document.getElementById("buttonTaps");
+    decentScale.addEventListener("buttonTap", (event) => {
+      const {button, tap} = event.message;
+      buttonTapsInput.innerText += `${button}: ${tap}\n`;
+    })
   </script>
 </html>

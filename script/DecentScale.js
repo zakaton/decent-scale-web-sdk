@@ -306,6 +306,11 @@ class DecentScale extends EventDispatcher {
   };
   USB_BATTERY_ENUM = 255;
 
+  firmwareVersion = null;
+  isUSB = null;
+  battery = null;
+  weightType = null;
+  
   onDataCharacteristicValueChanged(event) {
     let dataView = event.target.value;
     //this.log("onDataCharacteristicValueChanged", event, values);
@@ -316,21 +321,50 @@ class DecentScale extends EventDispatcher {
     switch (type) {
       case 0x0a: // LED on/off
         {
-          const message = {
-            weightType: this.WEIGHT_TYPE_ENUM[dataView.getUint8(3)],
-            batteryLife: dataView.getUint8(4),
-            firmwareVersion: this.FIRMWARE_ENUM[dataView.getUint8(5)],
-          };
-          message.isUSB = message.batteryLife == this.USB_BATTERY_ENUM;
+          let battery = dataView.getUint8(4);
+          const isUSB = battery == this.USB_BATTERY_ENUM;
+          if (isUSB) {
+            battery = 100;
+          }
+          this.battery = battery;
+          if (!isUSB) {
+            this.dispatchEvent({
+              type: "battery",
+              message: { battery },
+            });
+          }
 
-          this.firmwareVersion = message.firmwareVersion;
+          if (this.isUSB != isUSB) {
+            this.isUSB = isUSB;
+            this.dispatchEvent({
+              type: "isUSB",
+              message: { isUSB },
+            });
+            if (isUSB) {
+              this.dispatchEvent({
+                type: "battery",
+                message: { battery },
+              });
+            }
+          }
 
-          this.log("led", message);
-
-          this.dispatchEvent({
-            type: "led",
-            message,
-          });
+          const firmwareVersion = this.FIRMWARE_ENUM[dataView.getUint8(5)];
+          if (this.firmwareVersion != firmwareVersion) {
+            this.firmwareVersion = firmwareVersion;
+            this.dispatchEvent({
+              type: "firmwareVersion",
+              message: { firmwareVersion },
+            });
+          }
+          
+          const weightType = this.WEIGHT_TYPE_ENUM[dataView.getUint8(3)];
+          if (this.weightType != weightType) {
+            this.weightType = weightType;
+            this.dispatchEvent({
+              type: "weightType",
+              message: { weightType },
+            });
+          }
         }
         break;
       case 0x0f: // TARE
@@ -354,10 +388,15 @@ class DecentScale extends EventDispatcher {
           if (dataView.byteLength == 7) {
             message.change = dataView.getInt16(4);
           } else if (dataView.byteLength == 10) {
+            const minutes = dataView.getUint8(4);
+            const seconds = dataView.getUint8(5);
+            const milliseconds = dataView.getUint8(6);
+
             message.time = {
-              minutes: dataView.getUint8(4),
-              seconds: dataView.getUint8(5),
-              milliseconds: dataView.getUint8(6),
+              minutes,
+              seconds,
+              milliseconds,
+              string: `${minutes}:${seconds}:${milliseconds}`,
             };
           }
 
