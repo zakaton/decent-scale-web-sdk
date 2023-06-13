@@ -233,17 +233,7 @@ class DecentScale extends EventDispatcher {
         this.commandsToSend.push(commandData);
       } else {
         this.isSendingCommand = true;
-        commandData.unshift(0x03);
-        commandData.push(this.XORNumbers(commandData));
-        this.log(
-          "sending command data",
-          commandData,
-          this.numbersToHexString(commandData)
-        );
-        commandData = Uint8Array.from(commandData);
-        await this.services.main.characteristics.command.characteristic.writeValue(
-          commandData
-        );
+        this._sendCommandData(commandData);
         this.isSendingCommand = false;
         if (this.commandsToSend.length > 0) {
           const nextCommandData = this.commandsToSend.shift();
@@ -255,11 +245,24 @@ class DecentScale extends EventDispatcher {
       }
     }
   }
+  async _sendCommandData(commandData) {
+    commandData.unshift(0x03);
+    commandData.push(this.XORNumbers(commandData));
+    this.log(
+      "sending command data",
+      commandData,
+      this.numbersToHexString(commandData)
+    );
+    commandData = Uint8Array.from(commandData);
+    await this.services.main.characteristics.command.characteristic.writeValue(
+      commandData
+    );
+  }
 
-  async setLED(showWeightLED = false, showTimer = false, showGrams = true) {
+  async setLED(showWeight = false, showTimer = false, showGrams = true) {
     return this.sendCommandData([
       0x0a,
-      Number(showWeightLED),
+      Number(showWeight),
       Number(showTimer),
       Number(!showGrams),
       0,
@@ -310,7 +313,7 @@ class DecentScale extends EventDispatcher {
   isUSB = null;
   battery = null;
   weightType = null;
-  
+
   onDataCharacteristicValueChanged(event) {
     let dataView = event.target.value;
     //this.log("onDataCharacteristicValueChanged", event, values);
@@ -356,7 +359,7 @@ class DecentScale extends EventDispatcher {
               message: { firmwareVersion },
             });
           }
-          
+
           const weightType = this.WEIGHT_TYPE_ENUM[dataView.getUint8(3)];
           if (this.weightType != weightType) {
             this.weightType = weightType;
@@ -390,13 +393,13 @@ class DecentScale extends EventDispatcher {
           } else if (dataView.byteLength == 10) {
             const minutes = dataView.getUint8(4);
             const seconds = dataView.getUint8(5);
-            const milliseconds = dataView.getUint8(6);
+            const milliseconds = dataView.getUint8(6) * 100;
 
             message.time = {
               minutes,
               seconds,
               milliseconds,
-              string: `${minutes}:${seconds}:${milliseconds}`,
+              string: `${minutes}:${seconds}:${milliseconds.toString().padStart(3, 0)}`,
             };
           }
 

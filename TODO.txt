@@ -1,3 +1,4 @@
 DOCUMENTATION ISSUES
   power off sequence is wrong
   can you access timer info?
+  sent every 100ms (ms is not 1, 2, 3, but 100, 200, 300)
