@@ -233,7 +233,7 @@ class DecentScale extends EventDispatcher {
         this.commandsToSend.push(commandData);
       } else {
         this.isSendingCommand = true;
-        this._sendCommandData(commandData);
+        await this._sendCommandData(commandData);
         this.isSendingCommand = false;
         if (this.commandsToSend.length > 0) {
           const nextCommandData = this.commandsToSend.shift();
