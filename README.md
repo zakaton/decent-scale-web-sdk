@@ -1,4 +1,4 @@
-# decent-scale-web-sdk
+# Decent Scale Web SDK
 
 _A client-side JavaScript SDK for the [Decent Scale](https://decentespresso.com/decentscale) by [Decent Expresso](https://decentespresso.com/)_
 
